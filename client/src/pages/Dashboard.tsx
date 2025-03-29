@@ -10,6 +10,7 @@ import AgentDecisionVisualization from "@/components/AgentDecisionVisualization"
 import { useSystemContext } from "@/contexts/SystemContext";
 import { useMobile } from "@/hooks/use-mobile";
 import { Link } from "wouter";
+import { TestTube } from "lucide-react";
 
 export default function Dashboard() {
   const [showNotification, setShowNotification] = useState(false);
@@ -136,6 +137,10 @@ export default function Dashboard() {
               <button className="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                 Project Files
               </button>
+              <Link href="/tests" className="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 flex items-center">
+                <TestTube className="w-4 h-4 mr-1" />
+                <span>Test Suite</span>
+              </Link>
             </div>
           </div>
           
