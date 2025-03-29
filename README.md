@@ -1,26 +1,7 @@
+
 # Multi-Agent Programming Framework
 
 A sophisticated multi-agent framework designed to streamline complex software development tasks through intelligent, specialized agents. This system orchestrates a collaborative AI ecosystem for efficient and automated programming solutions.
-
-## Key Features
-
-- **Specialized Agent System**: Delegates tasks to purpose-built agents for design, coding, debugging, and supervision
-- **Multi-Provider LLM Integration**: Seamlessly integrates with multiple LLM providers (Groq, Phidata)
-- **Thread-Based Execution**: Manages concurrent execution and resource allocation to optimize task processing
-- **Real-Time Monitoring**: Interactive dashboard to visualize system activity, agent states, and task progress
-- **Persistent Memory**: Structured database storage for project components, agent memories, and system activity
-- **Hierarchical Task Management**: Organizes development workflows into projects, tasks, and messages
-
-## Architecture
-
-The system is built on a modular architecture with the following components:
-
-- **Agent Layer**: Specialized agents with distinct capabilities and responsibilities
-- **Thread Management**: Dynamic worker allocation for concurrent task execution
-- **Memory System**: Short-term and long-term memory capabilities for agents
-- **Component Registry**: Tracks project components and their relationships
-- **API Integration**: Standardized interface for multiple LLM providers
-- **Dashboard UI**: Real-time visualization and control interface
 
 ## Getting Started
 
@@ -33,33 +14,54 @@ The system is built on a modular architecture with the following components:
 ### Installation
 
 1. Clone the repository:
-   ```
-   git clone https://github.com/Alvin-bytes/multiagent-programming-framework.git
-   ```
+```bash
+git clone https://github.com/Alvin-bytes/multiagent-programming-framework.git
+cd multiagent-programming-framework
+```
 
 2. Install dependencies:
-   ```
-   npm install
-   ```
+```bash
+npm install
+```
 
-3. Create a `.env` file based on `.env.example` and add your API keys:
-   ```
-   DATABASE_URL=postgresql://username:password@localhost:5432/multiagent
-   GROQ_API_KEY=your_groq_api_key
-   PHIDATA_API_KEY=your_phidata_api_key
-   ```
+3. Set up your environment variables:
+   - Copy `.env.example` to `.env`
+   - Add your database URL and API keys:
+```
+DATABASE_URL=postgresql://username:password@localhost:5432/multiagent
+GROQ_API_KEY=your_groq_api_key
+PHIDATA_API_KEY=your_phidata_api_key
+```
 
-4. Start the development server:
-   ```
-   npm run dev
-   ```
+4. Push the database schema:
+```bash
+npm run db:push
+```
 
-## Agent Types
+5. Start the development server:
+```bash
+npm run dev
+```
 
-- **Design Agent**: Plans and structures software architecture
-- **Coding Agent**: Implements code based on specifications
-- **Debug Agent**: Identifies and resolves issues in code
-- **Supervision Agent**: Coordinates other agents and manages workflows
+The application will be available at `http://localhost:5000`
+
+## Key Components
+
+- `server/index.ts`: Main server entry point
+- `client/src`: React frontend code
+- `shared/schema.ts`: Database schema definitions
+- `server/agents`: AI agent implementations
+- `server/services`: Core services
+- `server/routes.ts`: API routes
+
+## Features
+
+- **Specialized Agent System**: Delegates tasks to purpose-built agents for design, coding, debugging, and supervision
+- **Multi-Provider LLM Integration**: Seamlessly integrates with multiple LLM providers (Groq, Phidata)
+- **Thread-Based Execution**: Manages concurrent execution and resource allocation to optimize task processing
+- **Real-Time Monitoring**: Interactive dashboard to visualize system activity, agent states, and task progress
+- **Persistent Memory**: Structured database storage for project components, agent memories, and system activity
+- **Hierarchical Task Management**: Organizes development workflows into projects, tasks, and messages
 
 ## System Requirements
 
