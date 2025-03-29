@@ -7,13 +7,15 @@ import UserInteraction from "@/components/UserInteraction";
 import SystemActivity from "@/components/SystemActivity";
 import NotificationToast from "@/components/NotificationToast";
 import AgentDecisionVisualization from "@/components/AgentDecisionVisualization";
+import { LLMCacheManager } from "@/components/LLMCacheManager";
 import { useSystemContext } from "@/contexts/SystemContext";
 import { useMobile } from "@/hooks/use-mobile";
 import { Link } from "wouter";
-import { TestTube } from "lucide-react";
+import { TestTube, Settings2 } from "lucide-react";
 
 export default function Dashboard() {
   const [showNotification, setShowNotification] = useState(false);
+  const [showLLMSettings, setShowLLMSettings] = useState(false);
   const [notificationData, setNotificationData] = useState({
     title: "Operation successful",
     message: "Task analysis completed and agents are now processing your request.",
@@ -125,7 +127,10 @@ export default function Dashboard() {
           {/* Panel Tabs */}
           <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <div className="px-4 flex space-x-4">
-              <button className="px-4 py-3 border-b-2 border-primary-500 text-primary-600 dark:text-primary-400 font-medium">
+              <button 
+                onClick={() => setShowLLMSettings(false)}
+                className={`px-4 py-3 border-b-2 ${!showLLMSettings ? 'border-primary-500 text-primary-600 dark:text-primary-400 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+              >
                 Main Interface
               </button>
               <button className="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
@@ -141,39 +146,53 @@ export default function Dashboard() {
                 <TestTube className="w-4 h-4 mr-1" />
                 <span>Test Suite</span>
               </Link>
+              <button 
+                onClick={() => setShowLLMSettings(true)}
+                className={`px-4 py-3 border-b-2 ${showLLMSettings ? 'border-primary-500 text-primary-600 dark:text-primary-400 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'} flex items-center`}
+              >
+                <Settings2 className="w-4 h-4 mr-1" />
+                <span>LLM Settings</span>
+              </button>
             </div>
           </div>
           
-          {/* Split Panels */}
-          <div 
-            className="flex-1 flex flex-col lg:flex-row overflow-hidden" 
-            id="split-panels"
-            ref={splitPanelsRef}
-          >
-            {/* Left Panel - User Interaction */}
-            <div 
-              className="flex-1 flex flex-col overflow-hidden" 
-              id="user-interaction-panel"
-              ref={leftPanelRef}
-            >
-              <UserInteraction />
+          {/* Main Content */}
+          {showLLMSettings ? (
+            <div className="flex-1 p-6 overflow-auto">
+              <LLMCacheManager />
             </div>
-            
-            {/* Right Panel - System Activity */}
+          ) : (
+            /* Split Panels - Normal UI */
             <div 
-              className="h-96 lg:h-auto lg:flex-1 flex flex-col overflow-hidden" 
-              id="system-activity-panel"
+              className="flex-1 flex flex-col lg:flex-row overflow-hidden" 
+              id="split-panels"
+              ref={splitPanelsRef}
             >
-              <div className="flex flex-col h-full">
-                <div className="flex-1 overflow-auto">
-                  <SystemActivity />
-                </div>
-                <div className="h-96 border-t border-gray-200 dark:border-gray-700">
-                  <AgentDecisionVisualization />
+              {/* Left Panel - User Interaction */}
+              <div 
+                className="flex-1 flex flex-col overflow-hidden" 
+                id="user-interaction-panel"
+                ref={leftPanelRef}
+              >
+                <UserInteraction />
+              </div>
+              
+              {/* Right Panel - System Activity */}
+              <div 
+                className="h-96 lg:h-auto lg:flex-1 flex flex-col overflow-hidden" 
+                id="system-activity-panel"
+              >
+                <div className="flex flex-col h-full">
+                  <div className="flex-1 overflow-auto">
+                    <SystemActivity />
+                  </div>
+                  <div className="h-96 border-t border-gray-200 dark:border-gray-700">
+                    <AgentDecisionVisualization />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
       

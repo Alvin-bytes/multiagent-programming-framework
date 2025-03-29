@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { storage } from "./storage";
 import { dbStorage } from "./databaseStorage";
 import { logger, loggerStream } from "./utils/logger";
+import { llmService, LLMProvider } from "./services/llmService";
 import { z } from "zod";
 import {
   insertMessageSchema,
@@ -863,6 +864,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error(`Error creating system knowledge: ${error instanceof Error ? error.message : 'Unknown error'}`);
       res.status(500).json({ error: 'Failed to create system knowledge' });
+    }
+  });
+  // LLM cache management routes
+  
+  // Get LLM cache metrics
+  app.get('/api/llm-cache-stats', (req: Request, res: Response) => {
+    try {
+      const metrics = llmService.getCacheMetrics();
+      res.json(metrics);
+    } catch (error) {
+      logger.error(`Error getting LLM cache stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to fetch LLM cache metrics' });
+    }
+  });
+  
+  // Clear LLM cache
+  app.post('/api/llm-cache/clear', (req: Request, res: Response) => {
+    try {
+      llmService.clearCache();
+      res.json({ success: true, message: 'LLM cache cleared successfully' });
+    } catch (error) {
+      logger.error(`Error clearing LLM cache: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to clear LLM cache' });
+    }
+  });
+  
+  // Set LLM cache settings
+  app.post('/api/llm-cache/settings', (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        ttlInSeconds: z.number().min(1).max(86400), // 1 second to 24 hours
+        maxSize: z.number().min(10).max(10000).optional() // 10 to 10,000 entries
+      });
+      
+      const validationResult = schema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: 'Invalid cache settings', details: validationResult.error });
+      }
+      
+      const { ttlInSeconds, maxSize } = validationResult.data;
+      llmService.setCacheSettings(ttlInSeconds, maxSize);
+      
+      res.json({ 
+        success: true, 
+        message: 'LLM cache settings updated successfully',
+        settings: { ttlInSeconds, maxSize }
+      });
+    } catch (error) {
+      logger.error(`Error updating LLM cache settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to update LLM cache settings' });
+    }
+  });
+  
+  // Get default LLM provider
+  app.get('/api/llm-provider', (req: Request, res: Response) => {
+    try {
+      const provider = llmService.getDefaultProvider();
+      res.json({ provider });
+    } catch (error) {
+      logger.error(`Error getting default LLM provider: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to get default LLM provider' });
+    }
+  });
+  
+  // Set default LLM provider
+  app.post('/api/llm-provider', (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        provider: z.enum([LLMProvider.GROQ, LLMProvider.PHIDATA])
+      });
+      
+      const validationResult = schema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: 'Invalid provider', details: validationResult.error });
+      }
+      
+      const { provider } = validationResult.data;
+      llmService.setDefaultProvider(provider);
+      
+      res.json({ 
+        success: true, 
+        message: `Default LLM provider set to ${provider}`
+      });
+    } catch (error) {
+      logger.error(`Error setting default LLM provider: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to set default LLM provider' });
     }
   });
   

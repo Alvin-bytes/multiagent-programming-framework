@@ -10,4 +10,32 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+  
+  :root {
+    --theme-transition-duration: 0.5s;
+  }
+  
+  /* Seamless theme transition for all elements */
+  html, body, *, *::before, *::after {
+    transition: background-color var(--theme-transition-duration) ease-in-out, 
+                border-color var(--theme-transition-duration) ease-in-out, 
+                color var(--theme-transition-duration) ease-in-out,
+                fill var(--theme-transition-duration) ease-in-out,
+                stroke var(--theme-transition-duration) ease-in-out,
+                opacity var(--theme-transition-duration) ease-in-out,
+                box-shadow var(--theme-transition-duration) ease-in-out,
+                transform 0.2s ease-in-out;
+  }
+  
+  /* Prevent transition flicker during page load */
+  .no-transitions {
+    transition: none !important;
+  }
+  
+  /* Optimize rendering */
+  * {
+    backface-visibility: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }

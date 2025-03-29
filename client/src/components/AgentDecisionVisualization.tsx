@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Agent, AgentType } from "@/types";
 import { useAgentContext } from "@/contexts/AgentContext";
 import { Brain, Code, Bug, Eye, Cog, BarChart4, Network, GitBranch, AlertCircle } from "lucide-react";
@@ -572,12 +573,14 @@ const AgentDecisionVisualization: React.FC = () => {
                 <span>{activeAgent} Agent Decision Process</span>
               </div>
               
-              <div className="overflow-x-auto">
-                <ExpandableNode 
-                  node={sampleDecisionTrees[activeAgent]} 
-                  level={0} 
-                />
-              </div>
+              <ScrollArea className="h-[400px]">
+                <div className="pr-4">
+                  <ExpandableNode 
+                    node={sampleDecisionTrees[activeAgent]} 
+                    level={0} 
+                  />
+                </div>
+              </ScrollArea>
             </div>
           </TabsContent>
           
@@ -589,24 +592,26 @@ const AgentDecisionVisualization: React.FC = () => {
                 <span>{activeAgent} Agent Activity Timeline</span>
               </div>
               
-              <div className="relative pl-8 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
-                {logs.find(log => log.agent.type === activeAgent)?.entries.map((entry, index) => (
-                  <div key={index} className="relative">
-                    <div className="absolute -left-[32px] w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
-                      <div className={`w-3 h-3 rounded-full ${entry.confidence > 85 ? 'bg-green-500' : entry.confidence > 70 ? 'bg-amber-500' : 'bg-red-500'}`}></div>
-                    </div>
-                    <div className="mb-1 flex justify-between">
-                      <div className="font-medium">{entry.action}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{entry.timestamp}</div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
-                        Confidence: {entry.confidence}%
+              <ScrollArea className="h-[350px]">
+                <div className="relative pl-8 border-l-2 border-gray-200 dark:border-gray-700 space-y-4 pr-4">
+                  {logs.find(log => log.agent.type === activeAgent)?.entries.map((entry, index) => (
+                    <div key={index} className="relative">
+                      <div className="absolute -left-[32px] w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
+                        <div className={`w-3 h-3 rounded-full ${entry.confidence > 85 ? 'bg-green-500' : entry.confidence > 70 ? 'bg-amber-500' : 'bg-red-500'}`}></div>
+                      </div>
+                      <div className="mb-1 flex justify-between">
+                        <div className="font-medium">{entry.action}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{entry.timestamp}</div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full">
+                          Confidence: {entry.confidence}%
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
           </TabsContent>
           
@@ -615,19 +620,21 @@ const AgentDecisionVisualization: React.FC = () => {
             <div className="p-4 border rounded-md bg-gray-50 dark:bg-gray-900">
               <div className="font-medium mb-4">Agent Collaboration Network</div>
               
-              <div 
-                ref={networkRef} 
-                className="h-[300px] w-full flex items-center justify-center"
-              >
-                <div className="text-center text-gray-500 dark:text-gray-400">
-                  Loading network visualization...
+              <ScrollArea className="h-[350px]">
+                <div 
+                  ref={networkRef} 
+                  className="h-[300px] w-full flex items-center justify-center"
+                >
+                  <div className="text-center text-gray-500 dark:text-gray-400">
+                    Loading network visualization...
+                  </div>
                 </div>
-              </div>
-              
-              <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-                The network visualization shows real-time collaboration between agents, with the
-                Supervision Agent (center) coordinating activities between specialized agents.
-              </div>
+                
+                <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 px-4 pb-2">
+                  The network visualization shows real-time collaboration between agents, with the
+                  Supervision Agent (center) coordinating activities between specialized agents.
+                </div>
+              </ScrollArea>
             </div>
           </TabsContent>
         </Tabs>
