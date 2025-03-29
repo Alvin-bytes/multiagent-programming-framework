@@ -125,30 +125,30 @@ export default function Dashboard() {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Panel Tabs */}
-          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-            <div className="px-4 flex space-x-4">
+          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+            <div className="px-4 flex whitespace-nowrap">
               <button 
                 onClick={() => setShowLLMSettings(false)}
-                className={`px-4 py-3 border-b-2 ${!showLLMSettings ? 'border-primary-500 text-primary-600 dark:text-primary-400 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+                className={`px-3 md:px-4 py-3 border-b-2 flex-shrink-0 ${!showLLMSettings ? 'border-primary-500 text-primary-600 dark:text-primary-400 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
               >
                 Main Interface
               </button>
-              <button className="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+              <button className="px-3 md:px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 flex-shrink-0 ml-2">
                 Documentation
               </button>
-              <Link href="/onboarding" className="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+              <Link href="/onboarding" className="px-3 md:px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 flex-shrink-0 ml-2">
                 Agent Configuration
               </Link>
-              <button className="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+              <button className="px-3 md:px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 flex-shrink-0 ml-2">
                 Project Files
               </button>
-              <Link href="/tests" className="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 flex items-center">
+              <Link href="/tests" className="px-3 md:px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 flex items-center flex-shrink-0 ml-2">
                 <TestTube className="w-4 h-4 mr-1" />
                 <span>Test Suite</span>
               </Link>
               <button 
                 onClick={() => setShowLLMSettings(true)}
-                className={`px-4 py-3 border-b-2 ${showLLMSettings ? 'border-primary-500 text-primary-600 dark:text-primary-400 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'} flex items-center`}
+                className={`px-3 md:px-4 py-3 border-b-2 ${showLLMSettings ? 'border-primary-500 text-primary-600 dark:text-primary-400 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'} flex items-center flex-shrink-0 ml-2`}
               >
                 <Settings2 className="w-4 h-4 mr-1" />
                 <span>LLM Settings</span>
@@ -186,8 +186,10 @@ export default function Dashboard() {
                   <div className="flex-1 overflow-auto">
                     <SystemActivity />
                   </div>
-                  <div className="h-96 border-t border-gray-200 dark:border-gray-700">
-                    <AgentDecisionVisualization />
+                  <div className="h-96 border-t border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="h-full overflow-auto">
+                      <AgentDecisionVisualization />
+                    </div>
                   </div>
                 </div>
               </div>
