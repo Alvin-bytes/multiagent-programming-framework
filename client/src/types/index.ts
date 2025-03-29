@@ -3,7 +3,8 @@ export enum AgentType {
   DESIGN = 'design',
   CODING = 'coding',
   SUPERVISION = 'supervision',
-  DEBUG = 'debug'
+  DEBUG = 'debug',
+  SELF_HEALING = 'self_healing'
 }
 
 export enum AgentStatus {

@@ -6,8 +6,10 @@ import QuickActions from "@/components/QuickActions";
 import UserInteraction from "@/components/UserInteraction";
 import SystemActivity from "@/components/SystemActivity";
 import NotificationToast from "@/components/NotificationToast";
+import AgentDecisionVisualization from "@/components/AgentDecisionVisualization";
 import { useSystemContext } from "@/contexts/SystemContext";
 import { useMobile } from "@/hooks/use-mobile";
+import { Link } from "wouter";
 
 export default function Dashboard() {
   const [showNotification, setShowNotification] = useState(false);
@@ -128,9 +130,9 @@ export default function Dashboard() {
               <button className="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                 Documentation
               </button>
-              <button className="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+              <Link href="/onboarding" className="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                 Agent Configuration
-              </button>
+              </Link>
               <button className="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                 Project Files
               </button>
@@ -157,7 +159,14 @@ export default function Dashboard() {
               className="h-96 lg:h-auto lg:flex-1 flex flex-col overflow-hidden" 
               id="system-activity-panel"
             >
-              <SystemActivity />
+              <div className="flex flex-col h-full">
+                <div className="flex-1 overflow-auto">
+                  <SystemActivity />
+                </div>
+                <div className="h-96 border-t border-gray-200 dark:border-gray-700">
+                  <AgentDecisionVisualization />
+                </div>
+              </div>
             </div>
           </div>
         </div>
