@@ -9,7 +9,9 @@ import {
   agentMemories, type AgentMemory, type InsertAgentMemory,
   projectComponents, type ProjectComponent, type InsertProjectComponent,
   componentRelationships, type ComponentRelationship, type InsertComponentRelationship,
-  AgentType, AgentStatus, TaskStatus, MessageType, ActivityType, MemoryType, ComponentType
+  systemKnowledgeBase, type SystemKnowledge, type InsertSystemKnowledge,
+  systemErrorLogs, type SystemErrorLog, type InsertSystemErrorLog,
+  AgentType, AgentStatus, TaskStatus, MessageType, ActivityType, MemoryType, ComponentType, ErrorType
 } from "@shared/schema";
 import { IStorage } from "./storage";
 import { db } from "./db";
@@ -281,6 +283,99 @@ export class DatabaseStorage implements IStorage {
   async createComponentRelationship(relationship: InsertComponentRelationship): Promise<ComponentRelationship> {
     const [newRelationship] = await db.insert(componentRelationships).values(relationship).returning();
     return newRelationship;
+  }
+  
+  // System Knowledge Base operations
+  async getSystemKnowledge(id: number): Promise<SystemKnowledge | undefined> {
+    const [knowledge] = await db.select().from(systemKnowledgeBase).where(eq(systemKnowledgeBase.id, id));
+    return knowledge || undefined;
+  }
+  
+  async getSystemKnowledgeByComponent(componentName: string): Promise<SystemKnowledge | undefined> {
+    const [knowledge] = await db.select().from(systemKnowledgeBase)
+      .where(eq(systemKnowledgeBase.componentName, componentName));
+    return knowledge || undefined;
+  }
+  
+  async getSystemKnowledgeByType(componentType: string): Promise<SystemKnowledge[]> {
+    return await db.select().from(systemKnowledgeBase)
+      .where(eq(systemKnowledgeBase.componentType, componentType));
+  }
+  
+  async getAllSystemKnowledge(): Promise<SystemKnowledge[]> {
+    return await db.select().from(systemKnowledgeBase)
+      .orderBy(desc(systemKnowledgeBase.lastUpdated));
+  }
+  
+  async createSystemKnowledge(knowledge: InsertSystemKnowledge): Promise<SystemKnowledge> {
+    const [newKnowledge] = await db.insert(systemKnowledgeBase)
+      .values({
+        ...knowledge,
+        lastUpdated: new Date()
+      })
+      .returning();
+    return newKnowledge;
+  }
+  
+  async updateSystemKnowledge(id: number, partialKnowledge: Partial<InsertSystemKnowledge>): Promise<SystemKnowledge | undefined> {
+    const [updatedKnowledge] = await db.update(systemKnowledgeBase)
+      .set({
+        ...partialKnowledge,
+        lastUpdated: new Date()
+      })
+      .where(eq(systemKnowledgeBase.id, id))
+      .returning();
+    return updatedKnowledge || undefined;
+  }
+  
+  // System Error Logs operations
+  async getSystemErrorLog(id: number): Promise<SystemErrorLog | undefined> {
+    const [errorLog] = await db.select().from(systemErrorLogs).where(eq(systemErrorLogs.id, id));
+    return errorLog || undefined;
+  }
+  
+  async getSystemErrorLogsByType(errorType: ErrorType): Promise<SystemErrorLog[]> {
+    return await db.select().from(systemErrorLogs)
+      .where(eq(systemErrorLogs.errorType, errorType))
+      .orderBy(desc(systemErrorLogs.timestamp));
+  }
+  
+  async getSystemErrorLogsByComponent(componentName: string): Promise<SystemErrorLog[]> {
+    return await db.select().from(systemErrorLogs)
+      .where(eq(systemErrorLogs.componentName, componentName))
+      .orderBy(desc(systemErrorLogs.timestamp));
+  }
+  
+  async getUnsolvedSystemErrorLogs(): Promise<SystemErrorLog[]> {
+    return await db.select().from(systemErrorLogs)
+      .where(eq(systemErrorLogs.isSolved, false))
+      .orderBy(desc(systemErrorLogs.timestamp));
+  }
+  
+  async createSystemErrorLog(errorLog: InsertSystemErrorLog): Promise<SystemErrorLog> {
+    const [newErrorLog] = await db.insert(systemErrorLogs)
+      .values(errorLog)
+      .returning();
+    return newErrorLog;
+  }
+  
+  async updateSystemErrorLog(id: number, partialErrorLog: Partial<InsertSystemErrorLog>): Promise<SystemErrorLog | undefined> {
+    const [updatedErrorLog] = await db.update(systemErrorLogs)
+      .set(partialErrorLog)
+      .where(eq(systemErrorLogs.id, id))
+      .returning();
+    return updatedErrorLog || undefined;
+  }
+  
+  async markSystemErrorAsSolved(id: number, solutionNotes: string): Promise<SystemErrorLog | undefined> {
+    const [updatedErrorLog] = await db.update(systemErrorLogs)
+      .set({
+        isSolved: true,
+        solutionNotes
+      })
+      .where(eq(systemErrorLogs.id, id))
+      .returning();
+    return updatedErrorLog || undefined;
   }
 }
 

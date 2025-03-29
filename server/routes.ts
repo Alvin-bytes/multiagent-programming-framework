@@ -8,6 +8,7 @@ import { z } from "zod";
 import {
   insertMessageSchema,
   insertTaskSchema,
+  ErrorType,
   insertProjectSchema,
   AgentType,
   AgentStatus,
@@ -20,6 +21,7 @@ import { DesignAgent } from "./agents/designAgent";
 import { CodingAgent } from "./agents/codingAgent";
 import { SupervisionAgent } from "./agents/supervisionAgent";
 import { DebugAgent } from "./agents/debugAgent";
+import { SelfHealingAgent } from "./agents/selfHealingAgent";
 import { agentTester } from "./tests/agentTester";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -29,6 +31,7 @@ let agents: {
   [AgentType.CODING]: CodingAgent;
   [AgentType.SUPERVISION]: SupervisionAgent;
   [AgentType.DEBUG]: DebugAgent;
+  [AgentType.SELF_HEALING]: SelfHealingAgent;
 } | null = null;
 
 // Function to initialize agents
@@ -40,13 +43,15 @@ async function initializeAgents() {
   const codingAgentId = allAgents.find(a => a.type === AgentType.CODING)?.id || 2;
   const supervisionAgentId = allAgents.find(a => a.type === AgentType.SUPERVISION)?.id || 3;
   const debugAgentId = allAgents.find(a => a.type === AgentType.DEBUG)?.id || 4;
+  const selfHealingAgentId = allAgents.find(a => a.type === AgentType.SELF_HEALING)?.id || 5;
   
   // Create agent instances
   agents = {
     [AgentType.DESIGN]: new DesignAgent(designAgentId),
     [AgentType.CODING]: new CodingAgent(codingAgentId),
     [AgentType.SUPERVISION]: new SupervisionAgent(supervisionAgentId),
-    [AgentType.DEBUG]: new DebugAgent(debugAgentId)
+    [AgentType.DEBUG]: new DebugAgent(debugAgentId),
+    [AgentType.SELF_HEALING]: new SelfHealingAgent(selfHealingAgentId)
   };
   
   logger.info('All agents initialized successfully');
@@ -264,7 +269,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           AgentType.DESIGN, 
           AgentType.CODING, 
           AgentType.SUPERVISION, 
-          AgentType.DEBUG
+          AgentType.DEBUG,
+          AgentType.SELF_HEALING
         ]),
         taskId: z.number().optional(),
         projectId: z.number().optional(),
@@ -451,6 +457,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // System Knowledge Base API
+  
+  // Get all system knowledge
+  app.get('/api/system-knowledge', async (req: Request, res: Response) => {
+    try {
+      const componentName = req.query.componentName as string;
+      const componentType = req.query.componentType as string;
+      
+      let knowledge;
+      if (componentName) {
+        knowledge = await storage.getSystemKnowledgeByComponent(componentName);
+      } else if (componentType) {
+        knowledge = await storage.getSystemKnowledgeByType(componentType);
+      } else {
+        knowledge = await storage.getAllSystemKnowledge();
+      }
+      
+      res.json(knowledge);
+    } catch (error) {
+      logger.error(`Error getting system knowledge: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to fetch system knowledge' });
+    }
+  });
+  
+  // Get specific system knowledge by ID
+  app.get('/api/system-knowledge/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid knowledge ID' });
+      }
+      
+      const knowledge = await storage.getSystemKnowledge(id);
+      if (!knowledge) {
+        return res.status(404).json({ error: 'System knowledge not found' });
+      }
+      
+      res.json(knowledge);
+    } catch (error) {
+      logger.error(`Error getting system knowledge: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to fetch system knowledge' });
+    }
+  });
+  
+  // Add new system knowledge
+  app.post('/api/system-knowledge', async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        componentName: z.string().min(1),
+        componentType: z.string().min(1),
+        description: z.string().min(1),
+        functionalities: z.record(z.any()).optional(),
+        dependencies: z.record(z.any()).optional(),
+        errorPatterns: z.record(z.any()).optional(),
+        documentation: z.string().nullable().optional(),
+        exampleCode: z.string().nullable().optional()
+      });
+      
+      const validationResult = schema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: 'Invalid knowledge data', details: validationResult.error });
+      }
+      
+      const knowledge = await storage.createSystemKnowledge(validationResult.data);
+      res.status(201).json(knowledge);
+    } catch (error) {
+      logger.error(`Error creating system knowledge: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to create system knowledge' });
+    }
+  });
+  
+  // System Error Logs API
+  
+  // Get error logs
+  app.get('/api/error-logs', async (req: Request, res: Response) => {
+    try {
+      const errorType = req.query.errorType as string;
+      const componentName = req.query.componentName as string;
+      const unsolved = req.query.unsolved === 'true';
+      
+      let errorLogs;
+      if (errorType) {
+        errorLogs = await storage.getSystemErrorLogsByType(errorType as ErrorType);
+      } else if (componentName) {
+        errorLogs = await storage.getSystemErrorLogsByComponent(componentName);
+      } else if (unsolved) {
+        errorLogs = await storage.getUnsolvedSystemErrorLogs();
+      } else {
+        // For safety, only allow filtered queries
+        return res.status(400).json({ error: 'Please provide a filter: errorType, componentName, or unsolved=true' });
+      }
+      
+      res.json(errorLogs);
+    } catch (error) {
+      logger.error(`Error getting error logs: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to fetch error logs' });
+    }
+  });
+  
+  // Get all error types (for dropdown filters)
+  app.get('/api/error-types', (req: Request, res: Response) => {
+    try {
+      const errorTypes = [
+        ErrorType.SYNTAX_ERROR,
+        ErrorType.RUNTIME_ERROR,
+        ErrorType.LOGIC_ERROR,
+        ErrorType.NETWORK_ERROR,
+        ErrorType.DATABASE_ERROR,
+        ErrorType.MEMORY_ERROR,
+        ErrorType.THREAD_ERROR,
+        ErrorType.API_ERROR,
+        ErrorType.UNKNOWN
+      ];
+      res.json(errorTypes);
+    } catch (error) {
+      logger.error(`Error getting error types: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to fetch error types' });
+    }
+  });
+  
+  // Create new error log
+  app.post('/api/error-logs', async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        componentName: z.string().min(1),
+        errorType: z.string(),
+        errorMessage: z.string().min(1),
+        stackTrace: z.string().nullable().optional(),
+        context: z.record(z.any()).optional(),
+        attempted_fixes: z.array(z.any()).optional(),
+        isSolved: z.boolean().optional(),
+        solutionNotes: z.string().nullable().optional()
+      });
+      
+      const validationResult = schema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: 'Invalid error log data', details: validationResult.error });
+      }
+      
+      const errorLog = await storage.createSystemErrorLog(validationResult.data);
+      res.status(201).json(errorLog);
+    } catch (error) {
+      logger.error(`Error creating error log: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to create error log' });
+    }
+  });
+  
+  // Mark error as solved
+  app.patch('/api/error-logs/:id/solve', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid error log ID' });
+      }
+      
+      const schema = z.object({
+        solutionNotes: z.string().min(1)
+      });
+      
+      const validationResult = schema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: 'Invalid solution data', details: validationResult.error });
+      }
+      
+      const { solutionNotes } = validationResult.data;
+      
+      const errorLog = await storage.markSystemErrorAsSolved(id, solutionNotes);
+      if (!errorLog) {
+        return res.status(404).json({ error: 'Error log not found' });
+      }
+      
+      res.json(errorLog);
+    } catch (error) {
+      logger.error(`Error marking error as solved: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to mark error as solved' });
+    }
+  });
+  
   // Get agent memories
   app.get('/api/agent-memories', async (req: Request, res: Response) => {
     try {
@@ -528,6 +712,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error(`Error getting component relationships: ${error instanceof Error ? error.message : 'Unknown error'}`);
       res.status(500).json({ error: 'Failed to fetch component relationships' });
+    }
+  });
+  
+  // Get system knowledge
+  app.get('/api/system-knowledge', async (req: Request, res: Response) => {
+    try {
+      const componentName = req.query.componentName as string;
+      const componentType = req.query.componentType as string;
+      
+      let knowledgeItems;
+      if (componentName) {
+        knowledgeItems = await dbStorage.getSystemKnowledgeByComponent(componentName);
+      } else if (componentType) {
+        knowledgeItems = await dbStorage.getSystemKnowledgeByType(componentType);
+      } else {
+        knowledgeItems = await dbStorage.getAllSystemKnowledge();
+      }
+      
+      res.json(knowledgeItems);
+    } catch (error) {
+      logger.error(`Error getting system knowledge: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to fetch system knowledge' });
+    }
+  });
+  
+  // Get system error logs
+  app.get('/api/system-errors', async (req: Request, res: Response) => {
+    try {
+      const errorType = req.query.errorType as string;
+      const componentName = req.query.componentName as string;
+      const unsolvedOnly = req.query.unsolvedOnly === 'true';
+      
+      let errorLogs;
+      if (errorType) {
+        errorLogs = await dbStorage.getSystemErrorLogsByType(errorType as any);
+      } else if (componentName) {
+        errorLogs = await dbStorage.getSystemErrorLogsByComponent(componentName);
+      } else if (unsolvedOnly) {
+        errorLogs = await dbStorage.getUnsolvedSystemErrorLogs();
+      } else {
+        // Get recent error logs (limited to avoid performance issues)
+        // This would need to be implemented in storage
+        errorLogs = await dbStorage.getUnsolvedSystemErrorLogs();
+      }
+      
+      res.json(errorLogs);
+    } catch (error) {
+      logger.error(`Error getting system error logs: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to fetch system error logs' });
+    }
+  });
+  
+  // Create a system error log
+  app.post('/api/system-errors', async (req: Request, res: Response) => {
+    try {
+      // Validate request body
+      const schema = z.object({
+        errorType: z.enum([
+          ErrorType.SYNTAX_ERROR,
+          ErrorType.RUNTIME_ERROR,
+          ErrorType.LOGIC_ERROR,
+          ErrorType.NETWORK_ERROR,
+          ErrorType.DATABASE_ERROR,
+          ErrorType.MEMORY_ERROR,
+          ErrorType.THREAD_ERROR,
+          ErrorType.API_ERROR,
+          ErrorType.UNKNOWN
+        ]),
+        componentName: z.string(),
+        errorMessage: z.string(),
+        stackTrace: z.string().optional(),
+        metadata: z.record(z.any()).optional()
+      });
+      
+      const validationResult = schema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: 'Invalid error log data', details: validationResult.error });
+      }
+      
+      const errorLog = await dbStorage.createSystemErrorLog({
+        ...validationResult.data,
+        isSolved: false,
+        solutionNotes: null
+      });
+      
+      // Broadcast error notification
+      broadcastMessage('SYSTEM_ERROR', errorLog);
+      
+      res.status(201).json(errorLog);
+    } catch (error) {
+      logger.error(`Error creating system error log: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to create system error log' });
+    }
+  });
+  
+  // Mark a system error as solved
+  app.patch('/api/system-errors/:id/solved', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid error log ID' });
+      }
+      
+      const schema = z.object({
+        solutionNotes: z.string()
+      });
+      
+      const validationResult = schema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: 'Solution notes are required' });
+      }
+      
+      const { solutionNotes } = validationResult.data;
+      
+      const updatedErrorLog = await dbStorage.markSystemErrorAsSolved(id, solutionNotes);
+      if (!updatedErrorLog) {
+        return res.status(404).json({ error: 'Error log not found' });
+      }
+      
+      // Broadcast error solved notification
+      broadcastMessage('SYSTEM_ERROR_SOLVED', updatedErrorLog);
+      
+      res.json(updatedErrorLog);
+    } catch (error) {
+      logger.error(`Error marking system error as solved: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to mark system error as solved' });
+    }
+  });
+  
+  // Create system knowledge
+  app.post('/api/system-knowledge', async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        componentName: z.string(),
+        componentType: z.string(),
+        knowledgeContent: z.string(),
+        source: z.string().optional(),
+        metadata: z.record(z.any()).optional()
+      });
+      
+      const validationResult = schema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: 'Invalid system knowledge data', details: validationResult.error });
+      }
+      
+      const systemKnowledge = await dbStorage.createSystemKnowledge(validationResult.data);
+      
+      res.status(201).json(systemKnowledge);
+    } catch (error) {
+      logger.error(`Error creating system knowledge: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ error: 'Failed to create system knowledge' });
     }
   });
   

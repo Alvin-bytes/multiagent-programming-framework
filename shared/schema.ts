@@ -142,7 +142,8 @@ export enum AgentType {
   DESIGN = 'design',
   CODING = 'coding',
   SUPERVISION = 'supervision',
-  DEBUG = 'debug'
+  DEBUG = 'debug',
+  SELF_HEALING = 'self_healing'
 }
 
 export enum AgentStatus {
@@ -171,8 +172,11 @@ export enum ActivityType {
   THREAD_ALLOCATION = 'thread_allocation',
   MEMORY_USAGE = 'memory_usage',
   AGENT_STATUS_CHANGE = 'agent_status_change',
-  SYSTEM_ERROR = 'system_error'
+  SYSTEM_ERROR = 'system_error',
+  SYSTEM_HEALING = 'system_healing'
 }
+
+// ErrorType is now defined at the end of the file
 
 // Memory type enum
 export enum MemoryType {
@@ -258,6 +262,57 @@ export const insertComponentRelationshipSchema = createInsertSchema(componentRel
   metadata: true
 });
 
+// System Knowledge Base table - For self-healing agent to understand system components
+export const systemKnowledgeBase = pgTable("system_knowledge_base", {
+  id: serial("id").primaryKey(),
+  componentName: text("component_name").notNull(),
+  componentType: text("component_type").notNull(), // 'module', 'service', 'agent', 'database', etc.
+  description: text("description").notNull(),
+  functionalities: jsonb("functionalities"), // List of functions/capabilities
+  dependencies: jsonb("dependencies"), // What this component depends on
+  errorPatterns: jsonb("error_patterns"), // Common error patterns and solutions
+  documentation: text("documentation"), // Detailed explanation
+  exampleCode: text("example_code"), // Example usage
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+export const insertSystemKnowledgeSchema = createInsertSchema(systemKnowledgeBase).pick({
+  componentName: true,
+  componentType: true,
+  description: true,
+  functionalities: true,
+  dependencies: true,
+  errorPatterns: true,
+  documentation: true,
+  exampleCode: true
+});
+
+// System Error Logs table - For tracking errors in the system
+export const systemErrorLogs = pgTable("system_error_logs", {
+  id: serial("id").primaryKey(),
+  errorType: text("error_type").notNull(),
+  componentName: text("component_name").notNull(),
+  errorMessage: text("error_message").notNull(),
+  stackTrace: text("stack_trace"),
+  context: jsonb("context"), // What was happening when error occurred
+  attempted_fixes: jsonb("attempted_fixes"), // What has been tried to fix it
+  isSolved: boolean("is_solved").default(false),
+  solutionNotes: text("solution_notes"), // How it was fixed if solved
+  timestamp: timestamp("timestamp").defaultNow()
+});
+
+export const insertSystemErrorLogSchema = createInsertSchema(systemErrorLogs).pick({
+  errorType: true,
+  componentName: true,
+  errorMessage: true,
+  stackTrace: true,
+  context: true,
+  attempted_fixes: true,
+  isSolved: true,
+  solutionNotes: true
+});
+
 // Add types for the new tables
 export type AgentMemory = typeof agentMemories.$inferSelect;
 export type InsertAgentMemory = z.infer<typeof insertAgentMemorySchema>;
@@ -267,3 +322,29 @@ export type InsertProjectComponent = z.infer<typeof insertProjectComponentSchema
 
 export type ComponentRelationship = typeof componentRelationships.$inferSelect;
 export type InsertComponentRelationship = z.infer<typeof insertComponentRelationshipSchema>;
+
+export type SystemKnowledge = typeof systemKnowledgeBase.$inferSelect;
+export type InsertSystemKnowledge = z.infer<typeof insertSystemKnowledgeSchema>;
+
+export type SystemErrorLog = typeof systemErrorLogs.$inferSelect;
+export type InsertSystemErrorLog = z.infer<typeof insertSystemErrorLogSchema>;
+
+// Define error types for self-healing agent
+export enum ErrorType {
+  RUNTIME_ERROR = 'runtime_error',
+  SYNTAX_ERROR = 'syntax_error',
+  LOGIC_ERROR = 'logic_error',
+  VALIDATION_ERROR = 'validation_error',
+  API_ERROR = 'api_error',
+  DATABASE_ERROR = 'database_error',
+  NETWORK_ERROR = 'network_error',
+  MEMORY_ERROR = 'memory_error',
+  THREAD_ERROR = 'thread_error',
+  AUTHENTICATION_ERROR = 'authentication_error',
+  AUTHORIZATION_ERROR = 'authorization_error',
+  RESOURCE_ERROR = 'resource_error',
+  CONFIGURATION_ERROR = 'configuration_error',
+  DEPENDENCY_ERROR = 'dependency_error',
+  SYSTEM_ERROR = 'system_error',
+  UNKNOWN = 'unknown'
+}

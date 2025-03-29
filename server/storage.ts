@@ -9,7 +9,9 @@ import {
   agentMemories, type AgentMemory, type InsertAgentMemory,
   projectComponents, type ProjectComponent, type InsertProjectComponent,
   componentRelationships, type ComponentRelationship, type InsertComponentRelationship,
-  AgentType, AgentStatus, TaskStatus, MessageType, ActivityType, MemoryType, ComponentType
+  systemKnowledgeBase, type SystemKnowledge, type InsertSystemKnowledge,
+  systemErrorLogs, type SystemErrorLog, type InsertSystemErrorLog,
+  AgentType, AgentStatus, TaskStatus, MessageType, ActivityType, MemoryType, ComponentType, ErrorType
 } from "@shared/schema";
 
 export interface IStorage {
@@ -73,12 +75,29 @@ export interface IStorage {
   getComponentRelationshipsByTarget(targetComponentId: number): Promise<ComponentRelationship[]>;
   getComponentRelationshipsByType(relationshipType: string): Promise<ComponentRelationship[]>;
   createComponentRelationship(relationship: InsertComponentRelationship): Promise<ComponentRelationship>;
+
+  // System Knowledge Base operations for self-healing agent
+  getSystemKnowledge(id: number): Promise<SystemKnowledge | undefined>;
+  getSystemKnowledgeByComponent(componentName: string): Promise<SystemKnowledge | undefined>;
+  getSystemKnowledgeByType(componentType: string): Promise<SystemKnowledge[]>;
+  getAllSystemKnowledge(): Promise<SystemKnowledge[]>;
+  createSystemKnowledge(knowledge: InsertSystemKnowledge): Promise<SystemKnowledge>;
+  updateSystemKnowledge(id: number, knowledge: Partial<InsertSystemKnowledge>): Promise<SystemKnowledge | undefined>;
+  
+  // System Error Logs operations for self-healing agent
+  getSystemErrorLog(id: number): Promise<SystemErrorLog | undefined>;
+  getSystemErrorLogsByType(errorType: ErrorType): Promise<SystemErrorLog[]>;
+  getSystemErrorLogsByComponent(componentName: string): Promise<SystemErrorLog[]>;
+  getUnsolvedSystemErrorLogs(): Promise<SystemErrorLog[]>;
+  createSystemErrorLog(errorLog: InsertSystemErrorLog): Promise<SystemErrorLog>;
+  updateSystemErrorLog(id: number, errorLog: Partial<InsertSystemErrorLog>): Promise<SystemErrorLog | undefined>;
+  markSystemErrorAsSolved(id: number, solutionNotes: string): Promise<SystemErrorLog | undefined>;
 }
 
 // Note: MemStorage is only implementing a subset of IStorage methods
 // Since we're transitioning to DatabaseStorage, these methods will be removed
 // in a future update. For now, this is kept for backward compatibility.
-export class MemStorage /* implements partial IStorage */ {
+export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private agents: Map<number, Agent>;
   private projects: Map<number, Project>;
@@ -86,6 +105,11 @@ export class MemStorage /* implements partial IStorage */ {
   private messages: Map<number, Message>;
   private systemActivities: Map<number, SystemActivity>;
   private systemStats: SystemStats | undefined;
+  private systemKnowledge: Map<number, SystemKnowledge>;
+  private systemErrorLogs: Map<number, SystemErrorLog>;
+  private agentMemories: Map<number, AgentMemory>;
+  private projectComponents: Map<number, ProjectComponent>;
+  private componentRelationships: Map<number, ComponentRelationship>;
 
   private userIdCounter: number;
   private agentIdCounter: number;
@@ -93,6 +117,11 @@ export class MemStorage /* implements partial IStorage */ {
   private taskIdCounter: number;
   private messageIdCounter: number;
   private systemActivityIdCounter: number;
+  private systemKnowledgeIdCounter: number;
+  private systemErrorLogIdCounter: number;
+  private agentMemoryIdCounter: number;
+  private projectComponentIdCounter: number;
+  private componentRelationshipIdCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -101,6 +130,11 @@ export class MemStorage /* implements partial IStorage */ {
     this.tasks = new Map();
     this.messages = new Map();
     this.systemActivities = new Map();
+    this.systemKnowledge = new Map();
+    this.systemErrorLogs = new Map();
+    this.agentMemories = new Map();
+    this.projectComponents = new Map();
+    this.componentRelationships = new Map();
 
     this.userIdCounter = 1;
     this.agentIdCounter = 1;
@@ -108,6 +142,11 @@ export class MemStorage /* implements partial IStorage */ {
     this.taskIdCounter = 1;
     this.messageIdCounter = 1;
     this.systemActivityIdCounter = 1;
+    this.systemKnowledgeIdCounter = 1;
+    this.systemErrorLogIdCounter = 1;
+    this.agentMemoryIdCounter = 1;
+    this.projectComponentIdCounter = 1;
+    this.componentRelationshipIdCounter = 1;
 
     // Initialize default system stats
     this.systemStats = {
@@ -130,7 +169,8 @@ export class MemStorage /* implements partial IStorage */ {
       { name: 'Design Agent', type: AgentType.DESIGN, status: AgentStatus.ACTIVE, isActive: true },
       { name: 'Coding Agent', type: AgentType.CODING, status: AgentStatus.IDLE, isActive: true },
       { name: 'Supervision Agent', type: AgentType.SUPERVISION, status: AgentStatus.OBSERVING, isActive: true },
-      { name: 'Debug Agent', type: AgentType.DEBUG, status: AgentStatus.STANDBY, isActive: true }
+      { name: 'Debug Agent', type: AgentType.DEBUG, status: AgentStatus.STANDBY, isActive: true },
+      { name: 'Self-Healing Agent', type: AgentType.SELF_HEALING, status: AgentStatus.STANDBY, isActive: true }
     ];
 
     defaultAgents.forEach(agent => this.createAgent(agent));
@@ -311,6 +351,355 @@ export class MemStorage /* implements partial IStorage */ {
     };
 
     return this.systemStats;
+  }
+  
+  // Agent Memory operations
+  async getAgentMemory(id: number): Promise<AgentMemory | undefined> {
+    return this.agentMemories.get(id);
+  }
+  
+  async getAgentMemoriesByAgent(agentId: number): Promise<AgentMemory[]> {
+    return Array.from(this.agentMemories.values()).filter(memory => memory.agentId === agentId);
+  }
+  
+  async getAgentMemoriesByProject(projectId: number): Promise<AgentMemory[]> {
+    return Array.from(this.agentMemories.values()).filter(memory => memory.projectId === projectId);
+  }
+  
+  async getAgentMemoriesByType(type: MemoryType): Promise<AgentMemory[]> {
+    return Array.from(this.agentMemories.values()).filter(memory => memory.memoryType === type);
+  }
+  
+  async createAgentMemory(insertMemory: InsertAgentMemory): Promise<AgentMemory> {
+    const id = this.agentMemoryIdCounter++;
+    const now = new Date();
+    const memory: AgentMemory = {
+      ...insertMemory,
+      id,
+      createdAt: now,
+      lastAccessed: now
+    };
+    this.agentMemories.set(id, memory);
+    return memory;
+  }
+  
+  async updateAgentMemoryAccessInfo(id: number): Promise<AgentMemory | undefined> {
+    const memory = this.agentMemories.get(id);
+    if (!memory) return undefined;
+    
+    const updatedMemory: AgentMemory = {
+      ...memory,
+      accessCount: (memory.accessCount || 0) + 1,
+      lastAccessed: new Date()
+    };
+    this.agentMemories.set(id, updatedMemory);
+    return updatedMemory;
+  }
+  
+  async deleteExpiredMemories(): Promise<void> {
+    // In memory storage, we don't auto-expire memories
+    // In a real DB implementation, this would delete old memories
+    return;
+  }
+  
+  // Project Component operations
+  async getProjectComponent(id: number): Promise<ProjectComponent | undefined> {
+    return this.projectComponents.get(id);
+  }
+  
+  async getProjectComponentsByProject(projectId: number): Promise<ProjectComponent[]> {
+    return Array.from(this.projectComponents.values()).filter(component => component.projectId === projectId);
+  }
+  
+  async getProjectComponentsByType(projectId: number, type: ComponentType): Promise<ProjectComponent[]> {
+    return Array.from(this.projectComponents.values())
+      .filter(component => component.projectId === projectId && component.componentType === type);
+  }
+  
+  async createProjectComponent(insertComponent: InsertProjectComponent): Promise<ProjectComponent> {
+    const id = this.projectComponentIdCounter++;
+    const now = new Date();
+    const component: ProjectComponent = {
+      ...insertComponent,
+      id,
+      createdAt: now
+    };
+    this.projectComponents.set(id, component);
+    return component;
+  }
+  
+  async updateProjectComponent(id: number, partialComponent: Partial<InsertProjectComponent>): Promise<ProjectComponent | undefined> {
+    const component = this.projectComponents.get(id);
+    if (!component) return undefined;
+    
+    const updatedComponent: ProjectComponent = {
+      ...component,
+      ...partialComponent
+    };
+    this.projectComponents.set(id, updatedComponent);
+    return updatedComponent;
+  }
+  
+  // Component Relationship operations
+  async getComponentRelationship(id: number): Promise<ComponentRelationship | undefined> {
+    return this.componentRelationships.get(id);
+  }
+  
+  async getComponentRelationshipsBySource(sourceComponentId: number): Promise<ComponentRelationship[]> {
+    return Array.from(this.componentRelationships.values())
+      .filter(relationship => relationship.sourceComponentId === sourceComponentId);
+  }
+  
+  async getComponentRelationshipsByTarget(targetComponentId: number): Promise<ComponentRelationship[]> {
+    return Array.from(this.componentRelationships.values())
+      .filter(relationship => relationship.targetComponentId === targetComponentId);
+  }
+  
+  async getComponentRelationshipsByType(relationshipType: string): Promise<ComponentRelationship[]> {
+    return Array.from(this.componentRelationships.values())
+      .filter(relationship => relationship.relationshipType === relationshipType);
+  }
+  
+  async createComponentRelationship(insertRelationship: InsertComponentRelationship): Promise<ComponentRelationship> {
+    const id = this.componentRelationshipIdCounter++;
+    const now = new Date();
+    const relationship: ComponentRelationship = {
+      ...insertRelationship,
+      id,
+      createdAt: now
+    };
+    this.componentRelationships.set(id, relationship);
+    return relationship;
+  }
+  
+  // System Knowledge Base operations for self-healing agent
+  async getSystemKnowledge(id: number): Promise<SystemKnowledge | undefined> {
+    return this.systemKnowledge.get(id);
+  }
+  
+  async getSystemKnowledgeByComponent(componentName: string): Promise<SystemKnowledge | undefined> {
+    return Array.from(this.systemKnowledge.values()).find(knowledge => knowledge.componentName === componentName);
+  }
+  
+  async getSystemKnowledgeByType(componentType: string): Promise<SystemKnowledge[]> {
+    return Array.from(this.systemKnowledge.values()).filter(knowledge => knowledge.componentType === componentType);
+  }
+  
+  async getAllSystemKnowledge(): Promise<SystemKnowledge[]> {
+    return Array.from(this.systemKnowledge.values());
+  }
+  
+  async createSystemKnowledge(insertKnowledge: InsertSystemKnowledge): Promise<SystemKnowledge> {
+    const id = this.systemKnowledgeIdCounter++;
+    const now = new Date();
+    const knowledge: SystemKnowledge = {
+      ...insertKnowledge,
+      id,
+      createdAt: now,
+      lastUpdated: now
+    };
+    this.systemKnowledge.set(id, knowledge);
+    return knowledge;
+  }
+  
+  async updateSystemKnowledge(id: number, partialKnowledge: Partial<InsertSystemKnowledge>): Promise<SystemKnowledge | undefined> {
+    const knowledge = this.systemKnowledge.get(id);
+    if (!knowledge) return undefined;
+    
+    const updatedKnowledge: SystemKnowledge = {
+      ...knowledge,
+      ...partialKnowledge,
+      lastUpdated: new Date()
+    };
+    this.systemKnowledge.set(id, updatedKnowledge);
+    return updatedKnowledge;
+  }
+  
+  // System Error Logs operations for self-healing agent
+  async getSystemErrorLog(id: number): Promise<SystemErrorLog | undefined> {
+    return this.systemErrorLogs.get(id);
+  }
+  
+  async getSystemErrorLogsByType(errorType: ErrorType): Promise<SystemErrorLog[]> {
+    return Array.from(this.systemErrorLogs.values()).filter(log => log.errorType === errorType);
+  }
+  
+  async getSystemErrorLogsByComponent(componentName: string): Promise<SystemErrorLog[]> {
+    return Array.from(this.systemErrorLogs.values()).filter(log => log.componentName === componentName);
+  }
+  
+  async getUnsolvedSystemErrorLogs(): Promise<SystemErrorLog[]> {
+    return Array.from(this.systemErrorLogs.values()).filter(log => !log.isSolved);
+  }
+  
+  async createSystemErrorLog(insertErrorLog: InsertSystemErrorLog): Promise<SystemErrorLog> {
+    const id = this.systemErrorLogIdCounter++;
+    const now = new Date();
+    const errorLog: SystemErrorLog = {
+      ...insertErrorLog,
+      id,
+      timestamp: now
+    };
+    this.systemErrorLogs.set(id, errorLog);
+    return errorLog;
+  }
+  
+  async updateSystemErrorLog(id: number, partialErrorLog: Partial<InsertSystemErrorLog>): Promise<SystemErrorLog | undefined> {
+    const errorLog = this.systemErrorLogs.get(id);
+    if (!errorLog) return undefined;
+    
+    const updatedErrorLog: SystemErrorLog = {
+      ...errorLog,
+      ...partialErrorLog
+    };
+    this.systemErrorLogs.set(id, updatedErrorLog);
+    return updatedErrorLog;
+  }
+  
+  async markSystemErrorAsSolved(id: number, solutionNotes: string): Promise<SystemErrorLog | undefined> {
+    const errorLog = this.systemErrorLogs.get(id);
+    if (!errorLog) return undefined;
+    
+    const updatedErrorLog: SystemErrorLog = {
+      ...errorLog,
+      isSolved: true,
+      solutionNotes
+    };
+    this.systemErrorLogs.set(id, updatedErrorLog);
+    return updatedErrorLog;
+  }
+
+  // System Knowledge Base operations
+  async getSystemKnowledge(id: number): Promise<SystemKnowledge | undefined> {
+    return this.systemKnowledge.get(id);
+  }
+
+  async getSystemKnowledgeByComponent(componentName: string): Promise<SystemKnowledge | undefined> {
+    for (const knowledge of this.systemKnowledge.values()) {
+      if (knowledge.componentName === componentName) {
+        return knowledge;
+      }
+    }
+    return undefined;
+  }
+
+  async getSystemKnowledgeByType(componentType: string): Promise<SystemKnowledge[]> {
+    const result: SystemKnowledge[] = [];
+    for (const knowledge of this.systemKnowledge.values()) {
+      if (knowledge.componentType === componentType) {
+        result.push(knowledge);
+      }
+    }
+    return result;
+  }
+
+  async getAllSystemKnowledge(): Promise<SystemKnowledge[]> {
+    return Array.from(this.systemKnowledge.values())
+      .sort((a, b) => {
+        if (!a.lastUpdated || !b.lastUpdated) return 0;
+        return b.lastUpdated.getTime() - a.lastUpdated.getTime();
+      });
+  }
+
+  async createSystemKnowledge(insertKnowledge: InsertSystemKnowledge): Promise<SystemKnowledge> {
+    const id = this.systemKnowledgeIdCounter++;
+    
+    const knowledge: SystemKnowledge = {
+      ...insertKnowledge,
+      id,
+      createdAt: new Date(),
+      lastUpdated: new Date()
+    };
+    
+    this.systemKnowledge.set(id, knowledge);
+    return knowledge;
+  }
+
+  async updateSystemKnowledge(id: number, partialKnowledge: Partial<InsertSystemKnowledge>): Promise<SystemKnowledge | undefined> {
+    const knowledge = this.systemKnowledge.get(id);
+    if (!knowledge) return undefined;
+    
+    const updatedKnowledge: SystemKnowledge = {
+      ...knowledge,
+      ...partialKnowledge,
+      lastUpdated: new Date()
+    };
+    
+    this.systemKnowledge.set(id, updatedKnowledge);
+    return updatedKnowledge;
+  }
+
+  // System Error Logs operations
+  async getSystemErrorLog(id: number): Promise<SystemErrorLog | undefined> {
+    return this.systemErrorLogs.get(id);
+  }
+
+  async getSystemErrorLogsByType(errorType: ErrorType): Promise<SystemErrorLog[]> {
+    const result: SystemErrorLog[] = [];
+    for (const errorLog of this.systemErrorLogs.values()) {
+      if (errorLog.errorType === errorType) {
+        result.push(errorLog);
+      }
+    }
+    // Sort by timestamp (most recent first)
+    return result.sort((a, b) => {
+      if (!a.timestamp || !b.timestamp) return 0;
+      return b.timestamp.getTime() - a.timestamp.getTime();
+    });
+  }
+
+  async getSystemErrorLogsByComponent(componentName: string): Promise<SystemErrorLog[]> {
+    const result: SystemErrorLog[] = [];
+    for (const errorLog of this.systemErrorLogs.values()) {
+      if (errorLog.componentName === componentName) {
+        result.push(errorLog);
+      }
+    }
+    // Sort by timestamp (most recent first)
+    return result.sort((a, b) => {
+      if (!a.timestamp || !b.timestamp) return 0;
+      return b.timestamp.getTime() - a.timestamp.getTime();
+    });
+  }
+
+  async getUnsolvedSystemErrorLogs(): Promise<SystemErrorLog[]> {
+    const result: SystemErrorLog[] = [];
+    for (const errorLog of this.systemErrorLogs.values()) {
+      if (errorLog.isSolved === false) {
+        result.push(errorLog);
+      }
+    }
+    // Sort by timestamp (most recent first)
+    return result.sort((a, b) => {
+      if (!a.timestamp || !b.timestamp) return 0;
+      return b.timestamp.getTime() - a.timestamp.getTime();
+    });
+  }
+
+  async createSystemErrorLog(insertErrorLog: InsertSystemErrorLog): Promise<SystemErrorLog> {
+    const id = this.systemErrorLogIdCounter++;
+    
+    const errorLog: SystemErrorLog = {
+      ...insertErrorLog,
+      id,
+      timestamp: new Date()
+    };
+    
+    this.systemErrorLogs.set(id, errorLog);
+    return errorLog;
+  }
+
+  async updateSystemErrorLog(id: number, partialErrorLog: Partial<InsertSystemErrorLog>): Promise<SystemErrorLog | undefined> {
+    const errorLog = this.systemErrorLogs.get(id);
+    if (!errorLog) return undefined;
+    
+    const updatedErrorLog: SystemErrorLog = {
+      ...errorLog,
+      ...partialErrorLog
+    };
+    
+    this.systemErrorLogs.set(id, updatedErrorLog);
+    return updatedErrorLog;
   }
 }
 
