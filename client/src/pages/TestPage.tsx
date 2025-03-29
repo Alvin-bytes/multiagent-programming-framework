@@ -7,10 +7,8 @@ const TestPage = () => {
       <div className="container mx-auto max-w-6xl">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">UI Test Dashboard</h1>
-          <Link href="/">
-            <a className="text-blue-600 dark:text-blue-400 hover:underline">
-              Return to Dashboard
-            </a>
+          <Link href="/" className="text-blue-600 dark:text-blue-400 hover:underline">
+            Return to Dashboard
           </Link>
         </div>
 

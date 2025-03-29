@@ -5,7 +5,7 @@ import { LLMRequestParams, LLMResponse } from './llmService';
 class GroqService {
   private apiKey: string | undefined;
   private baseUrl: string = 'https://api.groq.com/openai/v1';
-  private model: string = 'llama3-8b-8192';
+  private model: string = 'llama-3.3-70b-versatile';
 
   constructor() {
     // Get API key from environment variables
