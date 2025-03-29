@@ -35,20 +35,133 @@ const TestRunner = () => {
       let testResults;
       
       if (activeTab === 'dashboard') {
-        testResults = await dashboardTests.runAllTests();
+        // Safely run tests with error handling for each step
+        try {
+          testResults = await dashboardTests.runAllTests();
+        } catch (err) {
+          console.error('Dashboard test error:', err);
+          // Create a minimal test result structure for UI display
+          testResults = {
+            totalTests: 1,
+            passedTests: 0,
+            warningTests: 0,
+            failedTests: 1,
+            detailedResults: [{
+              elementName: 'Dashboard Test Suite',
+              status: 'error' as const,
+              message: err instanceof Error ? err.message : 'Unknown dashboard test error',
+              timestamp: new Date()
+            }]
+          };
+        }
       } else if (activeTab === 'onboarding') {
-        testResults = await agentOnboardingTests.runAllTests();
+        try {
+          testResults = await agentOnboardingTests.runAllTests();
+        } catch (err) {
+          console.error('Onboarding test error:', err);
+          testResults = {
+            totalTests: 1,
+            passedTests: 0,
+            warningTests: 0,
+            failedTests: 1,
+            detailedResults: [{
+              elementName: 'Onboarding Test Suite',
+              status: 'error' as const,
+              message: err instanceof Error ? err.message : 'Unknown onboarding test error',
+              timestamp: new Date()
+            }]
+          };
+        }
       } else if (activeTab === 'comprehensive') {
-        // For comprehensive tests, run both test suites
-        const dashboardResult = await dashboardTests.runAllTests();
+        // For comprehensive tests, we'll run each suite separately with its own error handling
+        let dashboardResult = {
+          totalTests: 0,
+          passedTests: 0,
+          warningTests: 0,
+          failedTests: 0,
+          detailedResults: [] as TestResult[]
+        };
         
-        // Navigate to onboarding page
-        window.location.href = '/onboarding';
+        let onboardingResult = {
+          totalTests: 0,
+          passedTests: 0,
+          warningTests: 0,
+          failedTests: 0,
+          detailedResults: [] as TestResult[]
+        };
         
-        // Give time for page to load
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Run dashboard tests with error handling
+        try {
+          dashboardResult = await dashboardTests.runAllTests();
+        } catch (err) {
+          console.error('Dashboard test error in comprehensive:', err);
+          dashboardResult = {
+            totalTests: 1,
+            passedTests: 0,
+            warningTests: 0,
+            failedTests: 1,
+            detailedResults: [{
+              elementName: 'Dashboard Test Suite',
+              status: 'error' as const,
+              message: err instanceof Error ? err.message : 'Unknown dashboard test error',
+              timestamp: new Date()
+            }]
+          };
+        }
         
-        const onboardingResult = await agentOnboardingTests.runAllTests();
+        // Navigate to onboarding page if needed - wrapped in try/catch
+        try {
+          // Use Link navigation instead of direct location change
+          const onboardingLink = document.querySelector('a[href="/onboarding"]') as HTMLElement;
+          if (onboardingLink) {
+            onboardingLink.click();
+          } else {
+            // Fallback
+            window.location.href = '/onboarding';
+          }
+          
+          // Give time for page to load
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Run onboarding tests
+          try {
+            onboardingResult = await agentOnboardingTests.runAllTests();
+          } catch (err) {
+            console.error('Onboarding test error in comprehensive:', err);
+            onboardingResult = {
+              totalTests: 1,
+              passedTests: 0,
+              warningTests: 0,
+              failedTests: 1,
+              detailedResults: [{
+                elementName: 'Onboarding Test Suite',
+                status: 'error' as const,
+                message: err instanceof Error ? err.message : 'Unknown onboarding test error',
+                timestamp: new Date()
+              }]
+            };
+          }
+          
+          // Go back to test page
+          const dashboardLink = document.querySelector('a[href="/"]') as HTMLElement;
+          if (dashboardLink) {
+            dashboardLink.click();
+          } else {
+            // Fallback
+            window.location.href = '/tests';
+          }
+        } catch (navError) {
+          console.error('Navigation error:', navError);
+          // Add a navigation error to the result
+          onboardingResult.detailedResults.push({
+            elementName: 'Navigation',
+            status: 'error' as const,
+            message: navError instanceof Error ? navError.message : 'Navigation error occurred',
+            timestamp: new Date()
+          });
+          onboardingResult.failedTests += 1;
+          onboardingResult.totalTests += 1;
+        }
         
         // Combine results
         testResults = {
@@ -58,9 +171,6 @@ const TestRunner = () => {
           failedTests: dashboardResult.failedTests + onboardingResult.failedTests,
           detailedResults: [...dashboardResult.detailedResults, ...onboardingResult.detailedResults]
         };
-        
-        // Navigate back to dashboard
-        window.location.href = '/';
       }
       
       if (testResults) {
@@ -72,18 +182,48 @@ const TestRunner = () => {
           variant: testResults.failedTests > 0 ? 'destructive' : 'default'
         });
       } else {
+        // This should not happen with our error handling, but just in case
         toast({
           title: 'Test Run Failed',
           description: 'Failed to get test results',
           variant: 'destructive'
         });
+        
+        // Create a minimal result for UI display
+        setResults({
+          totalTests: 1,
+          passedTests: 0,
+          warningTests: 0,
+          failedTests: 1,
+          detailedResults: [{
+            elementName: 'Test Runner',
+            status: 'error',
+            message: 'Failed to get test results',
+            timestamp: new Date()
+          }]
+        });
       }
     } catch (error) {
       console.error('Error running tests:', error);
+      
       toast({
         title: 'Test Run Failed',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive'
+      });
+      
+      // Create a minimal result for UI display
+      setResults({
+        totalTests: 1,
+        passedTests: 0,
+        warningTests: 0,
+        failedTests: 1,
+        detailedResults: [{
+          elementName: 'Test Suite',
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Unknown error in test runner',
+          timestamp: new Date()
+        }]
       });
     } finally {
       setIsRunning(false);
