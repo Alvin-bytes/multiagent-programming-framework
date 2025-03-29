@@ -13,6 +13,7 @@ export interface AgentExecutionResult {
     total: number;
   };
   error?: string;
+  metadata?: Record<string, any>;
 }
 
 export abstract class AgentBase {
@@ -96,6 +97,10 @@ export abstract class AgentBase {
               input: input.length,
               output: input.length * 2,
               total: input.length * 3
+            },
+            metadata: {
+              timestamp: new Date().toISOString(),
+              action: 'process'
             }
           };
         }
@@ -133,7 +138,12 @@ export abstract class AgentBase {
       return {
         success: false,
         output: '',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        metadata: {
+          timestamp: new Date().toISOString(),
+          action: 'error_handler',
+          errorType: error instanceof Error ? error.constructor.name : 'Unknown'
+        }
       };
     }
   }

@@ -14,6 +14,110 @@ interface SelfHealingParams {
 }
 
 /**
+ * Helper functions for the SelfHealingAgent
+ */
+const SelfHealingUtils = {
+  /**
+   * Classifies an error message into appropriate ErrorType
+   * @param errorMessage The error message to classify
+   * @param stackTrace Optional stack trace to provide more context
+   * @returns The classified ErrorType
+   */
+  classifyError: (errorMessage: string, stackTrace?: string): ErrorType => {
+    if (!errorMessage) return ErrorType.UNKNOWN;
+    
+    const errorMsg = errorMessage.toLowerCase();
+    const stackStr = stackTrace?.toLowerCase() || '';
+    
+    // Check for syntax errors
+    if (
+      errorMsg.includes('syntax error') ||
+      errorMsg.includes('unexpected token') ||
+      errorMsg.includes('unexpected identifier') ||
+      errorMsg.includes('parsing error')
+    ) {
+      return ErrorType.SYNTAX_ERROR;
+    }
+    
+    // Check for runtime errors
+    if (
+      errorMsg.includes('undefined is not a function') ||
+      errorMsg.includes('cannot read property') ||
+      errorMsg.includes('is not defined') ||
+      errorMsg.includes('is not a function') ||
+      errorMsg.includes('null pointer')
+    ) {
+      return ErrorType.RUNTIME_ERROR;
+    }
+    
+    // Check for network errors
+    if (
+      errorMsg.includes('network') ||
+      errorMsg.includes('connection') ||
+      errorMsg.includes('timeout') ||
+      errorMsg.includes('unreachable') ||
+      errorMsg.includes('econnrefused')
+    ) {
+      return ErrorType.NETWORK_ERROR;
+    }
+    
+    // Check for database errors
+    if (
+      errorMsg.includes('database') ||
+      errorMsg.includes('sql') ||
+      errorMsg.includes('query') ||
+      errorMsg.includes('constraint violation') ||
+      errorMsg.includes('unique constraint')
+    ) {
+      return ErrorType.DATABASE_ERROR;
+    }
+    
+    // Check for API errors
+    if (
+      errorMsg.includes('api') ||
+      errorMsg.includes('status code') ||
+      errorMsg.includes('endpoint') ||
+      errorMsg.includes('request failed')
+    ) {
+      return ErrorType.API_ERROR;
+    }
+    
+    // Check for memory errors
+    if (
+      errorMsg.includes('memory') ||
+      errorMsg.includes('allocation') ||
+      errorMsg.includes('out of memory') ||
+      errorMsg.includes('heap')
+    ) {
+      return ErrorType.MEMORY_ERROR;
+    }
+    
+    // Check for thread errors
+    if (
+      errorMsg.includes('thread') ||
+      errorMsg.includes('deadlock') ||
+      errorMsg.includes('race condition') ||
+      errorMsg.includes('concurrency')
+    ) {
+      return ErrorType.THREAD_ERROR;
+    }
+    
+    // Check for logic errors (these are harder to classify programmatically)
+    if (
+      errorMsg.includes('logic error') ||
+      errorMsg.includes('logical error') ||
+      errorMsg.includes('incorrect result') ||
+      errorMsg.includes('expected') && errorMsg.includes('but got')
+    ) {
+      return ErrorType.LOGIC_ERROR;
+    }
+    
+    // Default to unknown
+    return ErrorType.UNKNOWN;
+  }
+}
+
+/**
  * SelfHealingAgent is responsible for continuously monitoring the system,
  * detecting errors, and providing fixes or suggestions to heal system issues.
  * It has special capabilities to understand system structure and dependencies
@@ -153,6 +257,15 @@ export class SelfHealingAgent extends AgentBase {
       errorParams.stackTrace = context.stackTrace;
     }
     
+    // If we have an error message but no error type, try to classify it
+    if (errorParams.errorMessage && !errorParams.errorType) {
+      errorParams.errorType = SelfHealingUtils.classifyError(
+        errorParams.errorMessage, 
+        errorParams.stackTrace || undefined
+      );
+      logger.info(`Classified error as: ${errorParams.errorType}`);
+    }
+    
     // Execute analysis in a worker thread
     const result = await threadManager.executeTask(
       async (data) => {
@@ -211,6 +324,15 @@ export class SelfHealingAgent extends AgentBase {
     if (context?.componentName) errorParams.componentName = context.componentName;
     if (context?.errorMessage) errorParams.errorMessage = context.errorMessage;
     if (context?.stackTrace) errorParams.stackTrace = context.stackTrace;
+    
+    // If we have an error message but no error type, try to classify it
+    if (errorParams.errorMessage && !errorParams.errorType) {
+      errorParams.errorType = SelfHealingUtils.classifyError(
+        errorParams.errorMessage, 
+        errorParams.stackTrace || undefined
+      );
+      logger.info(`Classified error as: ${errorParams.errorType}`);
+    }
     
     // First, check if we have knowledge about this type of error
     let knowledgeBase;
